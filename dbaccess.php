@@ -86,20 +86,49 @@ function terminer($districtId, $thId)
     $sql = "SELECT * FROM reponse_non_valide 
     WHERE 
         user_id in ( SELECT id FROM user WHERE district_id = :districtId) 
-        AND question_id IN ( 
-            SELECT id FROM question q 
-            WHERE (
-                q.indicateur_id in (
-                    SELECT id FROM indicateur WHERE thematique_id = :thid
-                ) OR q.question_mere_id in (
-                    SELECT id FROM question WHERE indicateur_id in (
-                        SELECT id FROM indicateur WHERE thematique_id = :thiid
-                    )
-                ) 
-            )
+        AND question_id in (
+            SELECT distinct q.id
+            FROM question q 
+                LEFT JOIN  indicateur i ON i.id_question=q.id
+            WHERE q.question_mere_id in (
+                SELECT q.id FROM question q
+                WHERE q.id in (
+                    SELECT q.question_mere_id
+                    FROM thematique t
+                    LEFT JOIN indicateur i ON t.id = i.thematique_id
+                    LEFT JOIN question q ON i.id_question=q.id
+                    WHERE t.id = :thid
+                ) OR q.id in (
+                    SELECT q.id
+                    FROM thematique t
+                    LEFT JOIN indicateur i ON t.id = i.thematique_id
+                    LEFT JOIN question q ON i.id_question=q.id
+                    WHERE t.id = :thiid AND q.is_principale = 1
+                )
+            ) UNION SELECT distinct q.id
+                FROM question q 
+                    LEFT JOIN  indicateur i ON i.id_question=q.id
+                WHERE ( 
+                    q.id in (
+                    SELECT q.id FROM question q
+                    WHERE q.id in (
+                        SELECT q.question_mere_id
+                        FROM thematique t
+                            LEFT JOIN indicateur i ON t.id = i.thematique_id
+                            LEFT JOIN question q ON i.id_question=q.id
+                        WHERE t.id = :thiiid
+                    ) OR q.id in (
+                        SELECT q.id
+                        FROM thematique t
+                        LEFT JOIN indicateur i ON t.id = i.thematique_id
+                        LEFT JOIN question q ON i.id_question=q.id
+                        WHERE t.id = :thiiiid AND q.is_principale = 1
+                    ) 
+                )
+            ) 
         )";
 
-    $nv = getParam($sql, array("districtId" => $districtId, "thid" => $thId, "thiid" => $thId));
+    $nv = getParam($sql, array("districtId" => $districtId, "thid" => $thId, "thiid" => $thId, "thiiid" => $thId, "thiiiid" => $thId));
     foreach ($nv as $row) {
         $tp1 = set("DELETE FROM reponse WHERE id  = " . $row["id"], []);
         $reponse = [
@@ -107,25 +136,55 @@ function terminer($districtId, $thId)
             "user_id" => $row["user_id"],
             "date" => $row["date"],
             "question_id" => $row["question_id"],
-            "reponse" => $row["reponse"]
+            "reponse" => $row["reponse"],
+            "line_id" => $row["line_id"]
         ];
         add("reponse", $reponse);
     }
     set("DELETE FROM reponse_non_valide 
     WHERE 
         user_id in ( SELECT id FROM user WHERE district_id = :districtId) 
-        AND question_id IN ( 
-            SELECT id FROM question q 
-            WHERE (
-                q.indicateur_id in (
-                    SELECT id FROM indicateur WHERE thematique_id = :thid
-                ) OR q.question_mere_id in (
-                    SELECT id FROM question WHERE indicateur_id in (
-                        SELECT id FROM indicateur WHERE thematique_id = :thiid
-                    )
-                ) 
-            )
-        )", array("districtId" => $districtId, "thid" => $thId, "thiid" => $thId));
+        AND question_id in (
+            SELECT distinct q.id
+            FROM question q 
+                LEFT JOIN  indicateur i ON i.id_question=q.id
+            WHERE q.question_mere_id in (
+                SELECT q.id FROM question q
+                WHERE q.id in (
+                    SELECT q.question_mere_id
+                    FROM thematique t
+                    LEFT JOIN indicateur i ON t.id = i.thematique_id
+                    LEFT JOIN question q ON i.id_question=q.id
+                    WHERE t.id = :thid
+                ) OR q.id in (
+                    SELECT q.id
+                    FROM thematique t
+                    LEFT JOIN indicateur i ON t.id = i.thematique_id
+                    LEFT JOIN question q ON i.id_question=q.id
+                    WHERE t.id = :thiid AND q.is_principale = 1
+                )
+            ) UNION SELECT distinct q.id
+                FROM question q 
+                    LEFT JOIN  indicateur i ON i.id_question=q.id
+                WHERE ( 
+                    q.id in (
+                    SELECT q.id FROM question q
+                    WHERE q.id in (
+                        SELECT q.question_mere_id
+                        FROM thematique t
+                            LEFT JOIN indicateur i ON t.id = i.thematique_id
+                            LEFT JOIN question q ON i.id_question=q.id
+                        WHERE t.id = :thiiid
+                    ) OR q.id in (
+                        SELECT q.id
+                        FROM thematique t
+                        LEFT JOIN indicateur i ON t.id = i.thematique_id
+                        LEFT JOIN question q ON i.id_question=q.id
+                        WHERE t.id = :thiiiid AND q.is_principale = 1
+                    ) 
+                )
+            ) 
+        )", array("districtId" => $districtId, "thid" => $thId, "thiid" => $thId, "thiiid" => $thId, "thiiiid" => $thId));
     return true;
 }
 
