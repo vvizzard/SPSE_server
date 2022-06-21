@@ -23,6 +23,10 @@ else if ($table == "reponse_non_valide") {
 		)", array("userId"=>$userId)
 	);
 }
+else if ($table == "user") {
+	$date = $_GET["date"];
+	$reponse = get("SELECT * FROM user WHERE STR_TO_DATE(date, '%d-%m-%Y') > STR_TO_DATE('" . $date . "', '%d-%m-%Y')");
+}
 
 header('Content-Type: application/json; charset=utf-8');
 

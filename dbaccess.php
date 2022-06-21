@@ -81,10 +81,25 @@ function reject($districtId)
     return true;
 }
 
-function terminer($districtId)
+function terminer($districtId, $thId)
 {
-    $sql = "SELECT * FROM reponse_non_valide WHERE user_id in ( SELECT id FROM user WHERE district_id = " . $districtId . ")";
-    $nv = get($sql);
+    $sql = "SELECT * FROM reponse_non_valide 
+    WHERE 
+        user_id in ( SELECT id FROM user WHERE district_id = :districtId) 
+        AND question_id IN ( 
+            SELECT id FROM question q 
+            WHERE (
+                q.indicateur_id in (
+                    SELECT id FROM indicateur WHERE thematique_id = :thid
+                ) OR q.question_mere_id in (
+                    SELECT id FROM question WHERE indicateur_id in (
+                        SELECT id FROM indicateur WHERE thematique_id = :thiid
+                    )
+                ) 
+            )
+        )";
+
+    $nv = getParam($sql, array("districtId" => $districtId, "thid" => $thId, "thiid" => $thId));
     foreach ($nv as $row) {
         $tp1 = set("DELETE FROM reponse WHERE id  = " . $row["id"], []);
         $reponse = [
@@ -96,7 +111,21 @@ function terminer($districtId)
         ];
         add("reponse", $reponse);
     }
-    set("DELETE FROM reponse_non_valide WHERE user_id in (SELECT id FROM user WHERE district_id = " . $districtId . ")", []);
+    set("DELETE FROM reponse_non_valide 
+    WHERE 
+        user_id in ( SELECT id FROM user WHERE district_id = :districtId) 
+        AND question_id IN ( 
+            SELECT id FROM question q 
+            WHERE (
+                q.indicateur_id in (
+                    SELECT id FROM indicateur WHERE thematique_id = :thid
+                ) OR q.question_mere_id in (
+                    SELECT id FROM question WHERE indicateur_id in (
+                        SELECT id FROM indicateur WHERE thematique_id = :thiid
+                    )
+                ) 
+            )
+        )", array("districtId" => $districtId, "thid" => $thId, "thiid" => $thId));
     return true;
 }
 
