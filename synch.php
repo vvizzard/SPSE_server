@@ -6,8 +6,9 @@ $table = $_GET["table"];
 $reponse = [];
 
 if ($table == "reponse") {
-	$date = $_GET["date"];
-	$reponse = get("SELECT * FROM reponse WHERE STR_TO_DATE(date, '%d-%m-%Y') > STR_TO_DATE('" . $date . "', '%d-%m-%Y')");
+	$date = $_GET["id"];
+	// $reponse = get("SELECT * FROM reponse WHERE STR_TO_DATE(date, '%d-%m-%Y') > STR_TO_DATE('" . $date . "', '%d-%m-%Y')");
+	$reponse = get("SELECT * FROM reponse WHERE id > " . $date);
 }
 else if ($table == "reponse_non_valide") {
 	$userId = $_GET["user_id"];
@@ -24,8 +25,10 @@ else if ($table == "reponse_non_valide") {
 	);
 }
 else if ($table == "user") {
-	$date = $_GET["date"];
-	$reponse = get("SELECT * FROM user WHERE STR_TO_DATE(date, '%d-%m-%Y') > STR_TO_DATE('" . $date . "', '%d-%m-%Y')");
+	$reponse = $user = get("SELECT * FROM user");
+}
+else if ($table == "pta") {
+	$reponse = get("SELECT * FROM pta");
 }
 
 header('Content-Type: application/json; charset=utf-8');
