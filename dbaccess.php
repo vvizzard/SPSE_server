@@ -232,6 +232,19 @@ function getParam($sql, $params)
     }
 }
 
+function getParamConn($conn, $sql, $params)
+{
+  try {
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($params);
+    $stmt->setFetchMode(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll();
+  }
+  catch (PDOException $e) {
+    echo "Error: " . $e->getMessage();
+  }
+}
+
 function addUpdate($table, $params)
 {
     $id = false;
@@ -342,6 +355,13 @@ function logs($id, $pw)
     return get($sql);
 }
 
+function logsOld($id, $pw)
+{
+  $sql = "select * from user where email='" . $id . "' AND pw='" . $pw . "'";
+  // var_dump($sql);
+  return get($sql);
+}
+
 // Services funtions
 function makeSqlInsertFromArray($table, $data)
 { //     If there is no value, we don't do anything
@@ -373,4 +393,382 @@ function makeSqlInsertFromArray($table, $data)
         $sqlUser .= " ( " . $val . " ), ";
     }
     return substr($sqlUser, 0, -2);
+}
+
+/**
+ * 
+ * AFFICHAGE
+ * 
+ */
+function getAllQuestionByThematique($thematiqueId)
+{
+    $sql = "SELECT * FROM (SELECT distinct x.*, i.label as indicateur 
+    FROM question x 
+      LEFT JOIN  indicateur i ON i.id_question=x.id
+    WHERE x.question_mere_id in (
+        SELECT r.id FROM question r
+        WHERE r.id in (
+          SELECT r.question_mere_id
+          FROM thematique t
+            LEFT JOIN indicateur s ON t.id = s.thematique_id
+            LEFT JOIN question r ON s.id_question=r.id
+          WHERE t.id = :thId1
+        ) OR r.id in (
+          SELECT r.id
+          FROM thematique t
+            LEFT JOIN indicateur s ON t.id = s.thematique_id
+            LEFT JOIN question r ON s.id_question=r.id
+          WHERE t.id = :thId2 AND r.is_principale = 1
+        )
+    ) UNION SELECT distinct x.*, i.label as indicateur 
+        FROM question x 
+          LEFT JOIN  indicateur i ON i.id_question=x.id
+        WHERE ( 
+          x.id in (
+            SELECT v.id FROM question v
+            WHERE v.id in (
+              SELECT v.question_mere_id
+              FROM thematique t
+                  LEFT JOIN indicateur b ON t.id = b.thematique_id
+                  LEFT JOIN question v ON b.id_question=v.id
+              WHERE t.id = :thId3
+            ) OR v.id in (
+              SELECT v.id
+              FROM thematique t
+                LEFT JOIN indicateur b ON t.id = b.thematique_id
+                LEFT JOIN question v ON b.id_question=v.id
+              WHERE t.id = :thId4 AND v.is_principale = 1
+            ) 
+          )
+    )) as first ORDER BY first.id ASC";
+    $params = array("thId1" => $thematiqueId, "thId2" => $thematiqueId, "thId3" => $thematiqueId, "thId4" => $thematiqueId);
+    return getParam($sql, $params);
+}
+
+function findReponsesByThematique(
+    $thid = 1, $start = "2020-01-01", $end = "2023-02-01", $district_id = null, $region_id = null, $comment = null, $table = "reponse"
+    )
+{
+
+    // Parameters and additionals sql if needed
+    $entities = [];
+
+    // Get question by thématique
+    // Get response by thématique using question
+    // JOIN question with reponse
+    // Filter the result
+    $sql =
+        "
+      SELECT 
+        qs.label, 
+        resp.*, 
+        dist.id as district_id, 
+        dist.label as district, 
+        region.id as region_id, 
+        region.label as region,
+        STR_TO_DATE(resp.date, \"%d-%m-%Y\") as daty
+      FROM (
+        SELECT * FROM (SELECT distinct x.*, i.label as indicateur 
+    FROM question x 
+      LEFT JOIN  indicateur i ON i.id_question=x.id
+    WHERE x.question_mere_id in (
+        SELECT r.id FROM question r
+        WHERE r.id in (
+          SELECT r.question_mere_id
+          FROM thematique t
+            LEFT JOIN indicateur s ON t.id = s.thematique_id
+            LEFT JOIN question r ON s.id_question=r.id
+          WHERE t.id = :thId1
+        ) OR r.id in (
+          SELECT r.id
+          FROM thematique t
+            LEFT JOIN indicateur s ON t.id = s.thematique_id
+            LEFT JOIN question r ON s.id_question=r.id
+          WHERE t.id = :thId2 AND r.is_principale = 1
+        )
+    ) UNION SELECT distinct x.*, i.label as indicateur 
+        FROM question x 
+          LEFT JOIN  indicateur i ON i.id_question=x.id
+        WHERE ( 
+          x.id in (
+            SELECT v.id FROM question v
+            WHERE v.id in (
+              SELECT v.question_mere_id
+              FROM thematique t
+                  LEFT JOIN indicateur b ON t.id = b.thematique_id
+                  LEFT JOIN question v ON b.id_question=v.id
+              WHERE t.id = :thId3
+            ) OR v.id in (
+              SELECT v.id
+              FROM thematique t
+                LEFT JOIN indicateur b ON t.id = b.thematique_id
+                LEFT JOIN question v ON b.id_question=v.id
+              WHERE t.id = :thId4 AND v.is_principale = 1
+            ) 
+          )
+    )) as first ORDER BY first.id ASC
+      ) AS qs LEFT JOIN (
+        SELECT * FROM " .
+        $table .
+        " rnv 
+        WHERE rnv.question_id in (
+            SELECT first.id FROM (SELECT distinct x.*, i.label as indicateur 
+            FROM question x 
+              LEFT JOIN  indicateur i ON i.id_question=x.id
+            WHERE x.question_mere_id in (
+                SELECT r.id FROM question r
+                WHERE r.id in (
+                  SELECT r.question_mere_id
+                  FROM thematique t
+                    LEFT JOIN indicateur s ON t.id = s.thematique_id
+                    LEFT JOIN question r ON s.id_question=r.id
+                  WHERE t.id = :thId1
+                ) OR r.id in (
+                  SELECT r.id
+                  FROM thematique t
+                    LEFT JOIN indicateur s ON t.id = s.thematique_id
+                    LEFT JOIN question r ON s.id_question=r.id
+                  WHERE t.id = :thId2 AND r.is_principale = 1
+                )
+            ) UNION SELECT distinct x.*, i.label as indicateur 
+                FROM question x 
+                  LEFT JOIN  indicateur i ON i.id_question=x.id
+                WHERE ( 
+                  x.id in (
+                    SELECT v.id FROM question v
+                    WHERE v.id in (
+                      SELECT v.question_mere_id
+                      FROM thematique t
+                          LEFT JOIN indicateur b ON t.id = b.thematique_id
+                          LEFT JOIN question v ON b.id_question=v.id
+                      WHERE t.id = :thId3
+                    ) OR v.id in (
+                      SELECT v.id
+                      FROM thematique t
+                        LEFT JOIN indicateur b ON t.id = b.thematique_id
+                        LEFT JOIN question v ON b.id_question=v.id
+                      WHERE t.id = :thId4 AND v.is_principale = 1
+                    ) 
+                  )
+            )) as first ORDER BY first.id ASC
+        )
+      ) AS resp ON resp.question_id = qs.id 
+        LEFT JOIN user u ON u.id = resp.user_id
+        LEFT JOIN district dist ON dist.id = u.district_id
+        LEFT JOIN region ON region.id = dist.region_id
+      WHERE 1 = 1 
+    ";
+    $params = array("thId1" => $thid, "thId2" => $thid, "thId3" => $thid, "thId4" => $thid, "thId5" => $thid, "thId6" => $thid, "thId7" => $thid, "thId8" => $thid);
+
+    // More filter if needed
+    if ($start != null) {
+        $sql .= " AND STR_TO_DATE(resp.date, \"%d-%m-%Y\") >= :start";
+        $params["start"] = $start;
+    }
+    if ($end != null) {
+        $sql .= " AND STR_TO_DATE(resp.date, \"%d-%m-%Y\") <= :end";
+        $params["end"] = $end;
+    }
+
+    // Add filter by date
+    // sql .= "AND date like ? ";
+    // values.push(date);
+
+    // Add district filter
+    // if (districtId != null) {
+    //   sql .= "AND district_id = ?";
+    //   values.push(districtId);
+    // }
+
+    // Execute
+    // $params = array("thId1" => $thid, "thId2" => $thid, "thId3" => $thid, "thId4" => $thid, "thId5" => $thid, "thId6" => $thid, "thId7" => $thid, "thId8" => $thid);
+    return getParam($sql, $params);
+}
+
+class Lined
+{
+    private $lineId;
+
+    function __construct($lineId)
+    {
+        $this->lineId = $lineId;
+    }
+
+    function isSame($i)
+    {
+        return $i["line_id"] == $this->lineId;
+    }
+}
+
+function getTableByThematique($th, $start = null, $end = null)
+{
+    $questions = getQuestionByThematique($th);
+    $resp = findReponsesByThematique($th, $start, $end);
+
+    $lids = [];
+
+    foreach ($resp as $rp) {
+        if (!in_array($rp["line_id"], $lids)) {
+            $lids[] = $rp["line_id"];
+        }
+    }
+
+    $lignes = [];
+
+    foreach ($lids as $ls) {
+        $lignes[] = array_filter($resp, array(new Lined($ls), 'isSame'));
+    }
+
+    $reponse = [];
+    $r = [];
+
+    foreach ($lignes as $ligne) {
+        foreach ($questions as $qst) {
+            $temp = 1;
+            foreach ($ligne as $ll) {
+                if ($qst["id"] == $ll["question_id"]) {
+                    $r[] = $ll["reponse"];
+                    $temp = 0;
+                    break;
+                }
+            }
+            if ($temp == 1) {
+                $r[] = "";
+            }
+        }
+        $reponse[] = $r;
+        $r = [];
+    }
+
+    return $reponse;
+}
+
+function getIndicateurWithCritere($conn, $type = "SUM", $idQuestionForIndicateur, $idQuestionCritere, $start = null, $end = null)
+{
+    if ($type != "SUM" && $type != "sum")
+        $type = "COUNT";
+
+    $params = ["qind" => $idQuestionForIndicateur, "qcrt" => $idQuestionCritere];
+
+    $filter = "";
+
+    if ($start != null) {
+        $filter .= " AND STR_TO_DATE(date, \"%d-%m-%Y\") >= :start";
+        $params["start"] = $start;
+    }
+    if ($end != null) {
+        $filter .= " AND STR_TO_DATE(date, \"%d-%m-%Y\") <= :end";
+        $params["end"] = $end;
+    }
+
+    $sql =
+        "SELECT 
+      SUM(total) as total, critere 
+    FROM (
+      SELECT 
+        a.line_id, a.total, b.critere 
+      FROM (
+        SELECT 
+          line_id, 
+          " . $type . "(reponse) AS total 
+        FROM reponse 
+        WHERE 
+          question_id = :qind " . $filter . " 
+        GROUP BY line_id
+      ) AS a 
+      LEFT JOIN (
+        SELECT 
+          line_id, 
+          reponse AS critere 
+        FROM reponse 
+        WHERE 
+          question_id = :qcrt  " . $filter . " 
+        GROUP BY line_id
+      ) AS b 
+      ON a.line_id = b.line_id
+    ) AS v 
+    GROUP BY critere";
+
+    return getParamConn($conn, $sql, $params);
+}
+
+function getIndicateurWithoutCritere($conn, $type = "SUM", $idQuestionForIndicateur, $start = null, $end = null)
+{
+    if ($type != "SUM" && $type != "sum")
+        $type = "COUNT";
+
+    $params = ["qind" => $idQuestionForIndicateur];
+
+    $filter = "";
+
+    if ($start != null) {
+        $filter .= " AND STR_TO_DATE(date, \"%d-%m-%Y\") >= :start";
+        $params["start"] = $start;
+    }
+    if ($end != null) {
+        $filter .= " AND STR_TO_DATE(date, \"%d-%m-%Y\") <= :end";
+        $params["end"] = $end;
+    }
+
+    $sql = "SELECT " . $type . "(reponse) AS total FROM reponse WHERE question_id = :qind " . $filter;
+    return getParamConn($conn, $sql, $params);
+}
+
+function findIndicateurByThematique(
+    $thid = 1, $start = null, $end = null, $niveau = null, $comment = null)
+{
+
+    try {
+        $conn = getConnection();
+        $indicateurs = getParamConn($conn, "SELECT * FROM indicateur WHERE thematique_id = :thid", ["thid" => $thid]);
+
+
+        $valiny = [];
+
+        foreach ($indicateurs as $ind) {
+            $checkCritere = getParamConn($conn, "SELECT * FROM question WHERE indicateur_id = :indid", ["indid" => $ind["id"]]);
+            if (sizeof($checkCritere) > 0) {
+                $temp = [];
+                if ($ind["sum"] == 1) {
+                    $temp = getIndicateurWithCritere($conn, "SUM", $ind["id_question"], $checkCritere[0]["id"], $start, $end);
+                }
+                else {
+                    $temp = getIndicateurWithCritere($conn, "COUNT", $ind["id_question"], $checkCritere[0]["id"], $start, $end);
+                }
+                foreach ($temp as $t) {
+                    $valiny[] = ["label" => $ind["label"] . " ( " . $t["critere"] . " ) ", "value" => $t["total"]];
+                }
+            }
+            else {
+                $temp = [];
+                if ($ind["sum"] == 1) {
+                    $temp = getIndicateurWithoutCritere($conn, "SUM", $ind["id_question"], $start, $end);
+                }
+                else {
+                    $temp = getIndicateurWithoutCritere($conn, "COUNT", $ind["id_question"], $start, $end);
+                }
+                if (isset($temp[0]["total"]))
+                    $valiny[] = ["label" => $ind["label"], "value" => $temp[0]["total"]];
+            }
+        }
+
+        return $valiny;
+
+    }
+    catch (\Throwable $th) {
+        echo $th->__toString();
+        return false;
+    }
+
+    // More filter if needed
+    if ($start != null) {
+        $sql .= " AND STR_TO_DATE(resp.date, \"%d-%m-%Y\") >= :start";
+        $params["start"] = $start;
+    }
+    if ($end != null) {
+        $sql .= " AND STR_TO_DATE(resp.date, \"%d-%m-%Y\") <= :end";
+        $params["end"] = $end;
+    }
+
+    return getParam($sql, $params);
 }
